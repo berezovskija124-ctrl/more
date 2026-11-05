@@ -32,6 +32,8 @@ body {
 }
 @media (min-width: 760px) { body { --mx: 44px; --gut: 68px; padding-block: 28px 56px; } }
 main { max-width: 1040px; margin: 0 auto; display: grid; gap: 18px; }
+main.game { max-width: 1400px; gap: 12px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
 h1, h2, h3, .hand { font-family: var(--hand); font-weight: 400; margin: 0; text-wrap: balance; }
 p { margin: 0; max-width: 62ch; }
 button, input { font: inherit; color: inherit; }
@@ -81,10 +83,16 @@ figure { margin: 0; }
 .chip.on i { background: var(--ink); border-color: var(--ink); }
 .chip.off { color: var(--pen); } .chip.off i { border-color: var(--pen); }
 
-.status { display: grid; gap: 1px; min-height: 66px; }
-.status .big { font: 400 clamp(32px, 6vw, 44px)/1.05 var(--hand); }
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; gap: 12px; align-items: center;
+  justify-content: space-between; background: var(--paper); padding-block: 6px 8px; box-shadow: 0 1px 0 var(--line);
+}
+.status { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.status .big { font: 400 clamp(28px, 6vw, 44px)/1.05 var(--hand); }
 .status.mine .big { color: var(--pen); }
-.status .sub { color: var(--soft); min-height: 1.5em; }
+.status .sub { color: var(--soft); min-height: 1.5em; font-size: 14px; }
+.chat-btn { flex: none; position: relative; padding: 8px 15px 9px; font-size: 18px; }
+.badge { position: absolute; top: -7px; right: -6px; min-width: 21px; height: 21px; padding: 0 5px; border-radius: 11px; background: var(--pen); color: var(--paper); font: 600 12px/21px var(--text); text-align: center; }
 
 /* Boards */
 .board { container-type: inline-size; display: grid; grid-template-columns: 7% minmax(0, 1fr); grid-template-rows: auto auto; width: 100%; max-width: 100%; user-select: none; -webkit-user-select: none; }
@@ -100,8 +108,9 @@ figure { margin: 0; }
 .field.armed .cell[data-open="1"] { cursor: crosshair; }
 .field.armed .cell[data-open="1"]:hover { background: var(--tint); }
 .field.armed .cell:focus-visible { outline-offset: -3px; }
-.field.setup { touch-action: none; cursor: grab; }
-.field.setup.dragging { cursor: grabbing; }
+.field.setup { touch-action: pan-y; }
+.field.setup .cell.busy { touch-action: none; cursor: grab; }
+.field.setup.dragging, .field.setup.dragging .cell { cursor: grabbing; }
 .field.shake { animation: shake .3s; }
 @keyframes shake { 25% { transform: translateX(-5px) } 75% { transform: translateX(5px) } }
 
@@ -138,19 +147,74 @@ figure { margin: 0; }
 .steps { display: grid; gap: 5px; color: var(--soft); font-size: 14.5px; }
 #copy-fallback { width: 100%; padding: 7px; font-size: 14px; background: var(--paper); border: 1px solid var(--line); }
 
-.arena[data-phase="place"] .enemy { display: none; }
-.arena[data-phase="place"] .own .tally, .arena[data-phase="place"] .own .log { display: none; }
+.arena[data-phase="place"] .enemy, .arena[data-phase="place"] .side, .arena[data-phase="place"] .own .tally, .arena[data-phase="place"] .own h2 { display: none; }
 .arena[data-phase="battle"] .setup-panel { display: none; }
-.own { grid-template-columns: 44% minmax(0, 1fr); column-gap: 14px; align-items: start; }
-.own h2 { grid-column: 1 / -1; }
-.own .side { display: grid; gap: 8px; align-content: start; min-width: 0; }
-.arena[data-phase="place"] .own { grid-template-columns: minmax(0, 1fr); }
-.arena[data-phase="place"] .own h2 { display: none; }
+.side { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.setup-note { color: var(--soft); font-size: 14px; }
+@media (max-width: 759px) {
+  /* The board that matters right now is large; the other one waits beside the log. */
+  .arena[data-phase="battle"] { grid-template-columns: 44% minmax(0, 1fr); gap: 12px 14px; }
+  .arena[data-focus="enemy"] .enemy, .arena[data-focus="own"] .own { grid-column: 1 / -1; order: 1; }
+  .arena[data-focus="enemy"] .own, .arena[data-focus="own"] .enemy { grid-column: 1; order: 2; cursor: pointer; }
+  .arena[data-focus="enemy"] .own h2, .arena[data-focus="own"] .enemy h2 { font-size: 16px; }
+  .arena[data-focus="own"] .enemy .cells { pointer-events: none; }
+  .arena[data-focus="enemy"] .own .tally, .arena[data-focus="own"] .enemy .tally { display: none; }
+  .side { grid-column: 2; order: 3; }
+  .arena[data-phase="place"] { gap: 10px; }
+  .setup-panel { display: contents; }
+  .invite { order: -1; }
+  .place-actions { order: 1; position: sticky; bottom: env(safe-area-inset-bottom, 0px); z-index: 4; background: var(--paper); padding-block: 8px; }
+  .steps, .setup-note { order: 2; }
+  .invite .num { font-size: 38px; }
+}
 @media (min-width: 760px) {
-  .arena { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 34px; }
-  .own { grid-template-columns: minmax(0, 1fr); }
-  .own .side { grid-template-columns: minmax(0, 1fr); }
+  .arena { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px 34px; }
+  .side { grid-column: 1 / -1; }
   .arena[data-phase="place"] { grid-template-columns: minmax(0, 480px) minmax(0, 1fr); }
+}
+
+/* Chat: notes passed under the desk */
+.stage { display: grid; gap: 24px; align-items: start; min-width: 0; }
+.chat {
+  display: flex; flex-direction: column; gap: 9px; background: var(--paper); z-index: 20;
+  position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); height: min(58dvh, 480px);
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  border-top: 2px solid var(--ink); box-shadow: 0 -5px 0 var(--tint);
+  transform: translateY(110%); visibility: hidden; transition: transform .18s ease-out, visibility .18s;
+}
+.chat.open { transform: none; visibility: visible; }
+.chat-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.chat-head h2 { font-size: 24px; line-height: 1.1; }
+.msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-block: 4px; }
+.msgs .empty { color: var(--soft); font-size: 14px; margin: auto 0; }
+.msg { max-width: 86%; font: 400 19px/1.22 var(--hand); overflow-wrap: anywhere; white-space: pre-wrap; }
+.msg.them { align-self: flex-start; color: var(--pen); }
+.msg.mine { align-self: flex-end; text-align: right; }
+.msg small { display: block; font: 400 12px/1.3 var(--text); color: var(--soft); }
+.quick { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 3px; flex: none; }
+.quick button { flex: none; background: var(--tint); border: 1px solid var(--line); border-radius: 3px; padding: 5px 9px; font: 400 16px/1.15 var(--hand); cursor: pointer; }
+.quick button:hover { border-color: var(--ink); }
+#chat-form { display: flex; gap: 8px; flex: none; }
+#chat-input { flex: 1; min-width: 0; font-size: 16px; padding: 8px 10px; background: var(--paper); border: 2px solid var(--ink); border-radius: 3px; }
+#chat-form .btn { padding: 7px 13px 8px; font-size: 18px; }
+.chat .hint { font-size: 12.5px; flex: none; }
+.note {
+  position: fixed; z-index: 15; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  max-width: min(320px, calc(100vw - 32px)); padding: 9px 13px 10px; text-align: left; cursor: pointer;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--pen); box-shadow: 3px 4px 0 var(--line);
+  transform: rotate(-1.4deg); font: 400 18px/1.22 var(--hand); overflow-wrap: anywhere;
+}
+.note small { display: block; font: 400 12px/1.4 var(--text); color: var(--soft); }
+@media (min-width: 760px) { .chat { left: auto; right: 28px; width: 400px; border: 2px solid var(--ink); border-bottom: 0; padding-inline: 14px; } }
+@media (min-width: 1200px) {
+  .stage { grid-template-columns: minmax(0, 1fr) 300px; gap: 30px; }
+  .stage.nochat { grid-template-columns: minmax(0, 1fr); }
+  .chat {
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 92px); bottom: auto; left: auto; right: auto; width: auto;
+    height: min(calc(100dvh - 130px), 620px); transform: none; visibility: visible; transition: none;
+    border: 2px dashed var(--line); box-shadow: none; padding: 12px 13px;
+  }
+  .chat-btn, #chat-close, .note { display: none !important; }
 }
 .end { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .center { display: grid; gap: 14px; max-width: 62ch; padding-top: 30px; }
@@ -167,7 +231,7 @@ figure { margin: 0; }
 'use strict';
 /* ---------- Rules ---------- */
 const N = 10, LET = 'АБВГДЕЖЗИК', FLEET = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1], TOTAL = 20;
-const coord = c => LET[c % N] + (Math.floor(c / N) + 1);
+const coord = c => LET[c % N] + '-' + (Math.floor(c / N) + 1);
 const around = c => {
   const x = c % N, y = Math.floor(c / N), out = [];
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -262,7 +326,11 @@ function clean(x) {
   if (!Number.isInteger(x.seq) || !Number.isInteger(x.g) || x.g < 0 || !Number.isInteger(x.rematch)) return null;
   if (!ints(x.shots, 99, 300) || !ints(x.ans, 2, 300) || !shipsOk(x.sunk, 10)) return null;
   if (x.reveal !== null && !shipsOk(x.reveal, 10)) return null;
-  return { code: String(x.code), id: x.id, role: x.role, seq: x.seq, g: x.g, ready: !!x.ready, shots: x.shots, ans: x.ans, sunk: x.sunk, rematch: x.rematch, reveal: x.reveal };
+  const chat = Array.isArray(x.chat)
+    ? x.chat.slice(-30).filter(m => m && Number.isInteger(m.n) && m.n > 0 && typeof m.x === 'string' && m.x.length <= 400).sort((a, b) => a.n - b.n)
+    : [];
+  const seen = Number.isInteger(x.seen) && x.seen >= 0 ? x.seen : 0;
+  return { code: String(x.code), id: x.id, role: x.role, seq: x.seq, g: x.g, ready: !!x.ready, shots: x.shots, ans: x.ans, sunk: x.sunk, rematch: x.rematch, reveal: x.reveal, chat, seen };
 }
 
 /* ---------- Connection: MQTT over WebSocket, free public servers ----------
@@ -348,14 +416,16 @@ function mqttLink(url, topicFilter, onOpen, onMessage) {
 
 function mqttTransport(code, role, cb) {
   const base = NS + code + '/', topic = base + role;
-  let last = null, lastHeard = 0;
+  const boot = uid();
+  let last = null, lastHeard = 0, peerBoot = null;
   const push = l => { if (last) l.publish(topic, last); };
   const links = BROKERS.map(url => {
     const l = mqttLink(url, base + '+', () => { push(l); cb.onChange(); }, (text, retained) => {
       let st; try { st = JSON.parse(text); } catch { return; }
       const live = !retained;
       if (live && st && st.role && st.role !== role) {
-        if (Date.now() - lastHeard > 50000) links.forEach(push);
+        if (Date.now() - lastHeard > 50000 || st.boot !== peerBoot) links.forEach(push);
+        peerBoot = st.boot;
         lastHeard = Date.now();
       }
       cb.onState(st);
@@ -370,7 +440,7 @@ function mqttTransport(code, role, cb) {
     kind: 'mqtt',
     linked: () => links.some(l => l.alive),
     peerOnline: () => Date.now() - lastHeard < 50000,
-    publish(st) { last = JSON.stringify(st); links.forEach(push); },
+    publish(st) { last = JSON.stringify({ ...st, boot }); links.forEach(push); },
     close() {
       clearInterval(beat); removeEventListener('online', wake);
       document.removeEventListener('visibilitychange', wake); links.forEach(l => l.close());
@@ -463,16 +533,22 @@ const oppNow = () => (S.opp && S.opp.g === S.me.g ? S.opp : blank(S.me.g));
 const key = () => 'mb:' + S.code + ':' + S.role;
 const store = () => {
   if (S.mode !== 'net') return;
-  const { code, role, id, seq, me } = S;
-  save('localStorage', key(), { code, role, id, seq, me, opp: S.opp });
+  const { code, role, id, seq, me, chatN, chatSeen, peerSeen, outbox, log } = S;
+  save('localStorage', key(), { code, role, id, seq, me, opp: S.opp, chatN, chatSeen, peerSeen, outbox, log });
   save('sessionStorage', 'mb:tab', { code, role });
   save('localStorage', 'mb:last', { code, role, at: Date.now() });
 };
 const pub = () => {
   const { fleet, ...rest } = S.me;
-  return { ...rest, code: S.code, id: S.id, role: S.role, seq: S.seq };
+  return { ...rest, code: S.code, id: S.id, role: S.role, seq: S.seq, chat: S.outbox, seen: S.chatSeen };
 };
-const send = () => { if (T && !S.probing) T.publish(pub()); };
+/* Unconfirmed notes travel inside the state until the other player confirms them. State stays under 4 KB. */
+const send = () => {
+  if (!T || S.probing) return;
+  let p = pub();
+  while (p.chat.length > 1 && te.encode(JSON.stringify(p)).length > 3600) { S.outbox.shift(); p = pub(); }
+  T.publish(p);
+};
 function commit() { S.seq++; store(); send(); render(); }
 
 function onRemote(raw) {
@@ -486,14 +562,37 @@ function onRemote(raw) {
     }
     return;
   }
-  if (S.opp && S.opp.id === st.id && st.seq <= S.opp.seq) return;
+  if (S.opp && S.opp.id === st.id && st.seq <= S.opp.seq) { renderChips(); return; }
+  if (S.opp && S.opp.id !== st.id) S.chatSeen = 0;
   S.opp = st;
-  sync();
+  sync(takeChat(st));
 }
 
-function sync() {
+const SAFE = /[\u0000-\u001f\u007f\u200b\u200c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+const cleanText = t => t.replace(SAFE, ' ').trim().slice(0, 200);
+function takeChat(st) {
+  let changed = false, fresh = null;
+  st.chat.forEach(m => {
+    if (m.n <= S.chatSeen) return;
+    S.chatSeen = m.n;
+    changed = true;
+    const x = cleanText(m.x);
+    if (x) { S.log.push({ mine: false, x }); fresh = x; }
+  });
+  if (st.seen > S.peerSeen) {
+    S.peerSeen = st.seen;
+    const before = S.outbox.length;
+    S.outbox = S.outbox.filter(m => m.n > st.seen);
+    if (S.outbox.length !== before) changed = true;
+  }
+  if (S.log.length > 200) S.log = S.log.slice(-200);
+  if (fresh) gotNote(fresh);
+  return changed;
+}
+
+function sync(force) {
   const me = S.me, o = S.opp;
-  let changed = false;
+  let changed = !!force;
   if (o && me.rematch === me.g + 1 && (o.rematch === me.g + 1 || o.g === me.g + 1)) {
     S.me = newPlayer(me.g + 1, randomFleet());
     commit();
@@ -537,12 +636,12 @@ async function connect() {
 }
 
 function begin(state) {
-  S = state;
+  S = { chatN: 0, chatSeen: 0, peerSeen: 0, outbox: [], log: [], unread: 0, ...state };
   buildGame();
   render();
   connect();
   clearInterval(tickT);
-  tickT = setInterval(() => { if (S) renderChips(); }, 3000);
+  tickT = setInterval(() => { if (S) render(); }, 3000);
 }
 
 function startHost() {
@@ -570,6 +669,7 @@ function leave() {
   if (T) T.close();
   T = null; S = null;
   clearInterval(tickT);
+  clearTimeout(focusT); clearTimeout(noteT);
   drop('sessionStorage', 'mb:tab');
   document.title = BASE_TITLE;
   try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch {}
@@ -647,6 +747,7 @@ function makeBoard(host, label, shoot) {
 /* ---------- Home ---------- */
 const BASE_TITLE = 'Морской бой в клетку';
 function renderHome(message) {
+  app.className = '';
   const last = load('localStorage', 'mb:last');
   const fresh = last && Date.now() - last.at < 7 * 864e5 && load('localStorage', 'mb:' + last.code + ':' + last.role);
   const net = !netBlocked;
@@ -654,7 +755,7 @@ function renderHome(message) {
     <section class="home">
       <div class="home-text">
         <h1><span>Морской бой<svg viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8C60 3 120 12 180 6s80 4 118 1" fill="none" stroke="var(--pen)" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg></span></h1>
-        <p class="lead">Партия на двоих через интернет, как на листке в клетку. Без регистрации и бесплатно: создай игру и отправь другу шестизначный код.</p>
+        <p class="lead">Партия на двоих через интернет, как на листке в клетку. Без регистрации и бесплатно: создай игру, отправь другу приглашение и переписывайся с ним прямо во время боя.</p>
         ${message ? `<p class="notice" role="status">${message}</p>` : ''}
         ${net ? `
         <div class="row">
@@ -664,7 +765,7 @@ function renderHome(message) {
         <form class="join" id="join-form" novalidate>
           <label for="code-input">Друг прислал код?</label>
           <div class="row">
-            <input id="code-input" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="000000" aria-describedby="join-err">
+            <input id="code-input" inputmode="numeric" autocomplete="off" placeholder="000000" aria-describedby="join-err">
             <button class="btn" type="submit">Войти в игру</button>
           </div>
           <span class="err" id="join-err" role="alert"></span>
@@ -689,7 +790,13 @@ function renderHome(message) {
   $('bot').onclick = startBot;
   if ($('join-form')) {
     const input = $('code-input');
-    input.oninput = () => { input.value = input.value.replace(/\D/g, ''); $('join-err').textContent = ''; };
+    input.oninput = () => {
+      /* Accepts a pasted invitation too: the six digits are picked out of the text. */
+      const m = input.value.match(/\d{6}/);
+      input.value = m ? m[0] : input.value.replace(/\D/g, '').slice(0, 6);
+      $('join-err').textContent = '';
+      if (m) joinCode(m[0]);
+    };
     $('join-form').onsubmit = e => {
       e.preventDefault();
       if (/^\d{6}$/.test(input.value)) joinCode(input.value);
@@ -699,33 +806,68 @@ function renderHome(message) {
 }
 
 /* ---------- Game screen ---------- */
-let V = null, drag = null, setupMsg = '', lastLogged = 0, animatedKey = '';
+let V = null, drag = null, setupMsg = '', animatedKey = '', focusT = 0, focusWant = null, noteT = 0;
+const QUICK = ['Привет!', 'Удачи!', 'Хороший выстрел!', 'Ну ты даёшь', 'Ещё партию?'];
 function buildGame() {
+  app.className = 'game';
+  const chatOn = S.mode === 'net';
   app.innerHTML = `
     <header class="top">
       <span class="name">Морской бой</span>
       <span class="chips" id="chips"></span>
+      <button class="btn quiet" id="sound" type="button"></button>
       <button class="btn quiet" id="exit" type="button">В меню</button>
     </header>
-    <div class="status" id="status" aria-live="polite"><div class="big" id="st-big"></div><div class="sub" id="st-sub"></div></div>
+    <div class="bar">
+      <div class="status" id="status" aria-live="polite"><div class="big" id="st-big"></div><div class="sub" id="st-sub"></div></div>
+      <button class="btn chat-btn" id="chat-open" type="button"${chatOn ? '' : ' hidden'}>Чат<span class="badge" id="badge" hidden></span></button>
+    </div>
     <div class="end" id="end" hidden></div>
-    <section class="arena" id="arena">
-      <div class="col enemy"><h2>Поле соперника</h2><div id="b-enemy"></div><div class="tally" id="t-enemy" aria-hidden="true"></div></div>
-      <div class="col own">
-        <h2>Твоё поле</h2>
-        <div id="b-own"></div>
-        <div class="side">
-          <div class="tally" id="t-own" aria-hidden="true"></div>
-          <ol class="log" id="log"></ol>
-        </div>
-      </div>
-      <div class="setup-panel" id="setup"></div>
-    </section>`;
+    <div class="stage${chatOn ? '' : ' nochat'}">
+      <section class="arena" id="arena">
+        <div class="col enemy"><h2>Поле соперника</h2><div id="b-enemy"></div><div class="tally" id="t-enemy" aria-hidden="true"></div></div>
+        <div class="col own"><h2>Твоё поле</h2><div id="b-own"></div><div class="tally" id="t-own" aria-hidden="true"></div></div>
+        <div class="side"><ol class="log" id="log"></ol></div>
+        <div class="setup-panel" id="setup"></div>
+      </section>
+      <aside class="chat" id="chat" aria-label="Чат с соперником"${chatOn ? '' : ' hidden'}>
+        <div class="chat-head"><h2>Записки</h2><button class="btn quiet" id="chat-close" type="button">Закрыть</button></div>
+        <div class="msgs" id="msgs" role="log"></div>
+        <div class="quick" id="quick"></div>
+        <form id="chat-form">
+          <input id="chat-input" maxlength="200" autocomplete="off" enterkeyhint="send" placeholder="Твоя записка" aria-label="Сообщение сопернику">
+          <button class="btn main" type="submit">Отправить</button>
+        </form>
+        ${inClaude ? '' : '<p class="hint">Записки идут через открытые серверы, личное сюда лучше не писать.</p>'}
+      </aside>
+    </div>
+    <button class="note" id="note" type="button" hidden></button>`;
   const q = id => app.querySelector('#' + id);
-  V = { arena: q('arena'), big: q('st-big'), sub: q('st-sub'), status: q('status'), end: q('end'), setup: q('setup'), chips: q('chips'), log: q('log'), tE: q('t-enemy'), tO: q('t-own') };
+  V = { arena: q('arena'), big: q('st-big'), sub: q('st-sub'), status: q('status'), end: q('end'), setup: q('setup'), chips: q('chips'), log: q('log'), tE: q('t-enemy'), tO: q('t-own'),
+    chat: q('chat'), msgs: q('msgs'), input: q('chat-input'), badge: q('badge'), note: q('note'), soundBtn: q('sound') };
   V.enemy = makeBoard(q('b-enemy'), 'Поле соперника', true);
   V.own = makeBoard(q('b-own'), 'Твоё поле', false);
   q('exit').onclick = leave;
+  q('chat-open').onclick = () => (V.chat.classList.contains('open') ? closeChat() : openChat());
+  q('chat-close').onclick = closeChat;
+  V.note.onclick = openChat;
+  V.chat.addEventListener('keydown', e => { if (e.key === 'Escape') closeChat(); });
+  q('chat-form').onsubmit = e => { e.preventDefault(); sendNote(V.input.value); V.input.value = ''; };
+  QUICK.forEach(t => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = t; b.onclick = () => sendNote(t);
+    q('quick').appendChild(b);
+  });
+  V.soundBtn.onclick = () => { Snd.toggle(); paintSound(); };
+  paintSound();
+  V.arena.addEventListener('click', e => {
+    /* On a phone, tapping the small board brings it up. */
+    if (V.arena.dataset.phase !== 'battle' || !matchMedia('(max-width: 759px)').matches) return;
+    const f = V.arena.dataset.focus, small = e.target.closest(f === 'enemy' ? '.own' : '.enemy');
+    if (small) { clearTimeout(focusT); V.arena.dataset.focus = f === 'enemy' ? 'own' : 'enemy'; }
+  });
+  focusWant = null;
+  V.logKey = null;
   V.setupKey = '';
   animatedKey = '';
   drag = null; setupMsg = '';
@@ -746,6 +888,108 @@ function buildGame() {
   });
   bindPlacement(V.own.field);
 }
+
+/* ---------- Chat ---------- */
+const wideChat = () => matchMedia('(min-width: 1200px)').matches;
+function sendNote(text) {
+  const x = cleanText(text);
+  if (!x || !S) return;
+  S.chatN++;
+  S.outbox.push({ n: S.chatN, x });
+  S.log.push({ mine: true, n: S.chatN, x });
+  commit();
+}
+function gotNote(x) {
+  Snd.play('note');
+  if (!V || wideChat() || V.chat.classList.contains('open')) return;
+  S.unread++;
+  V.note.innerHTML = '<small>Записка от соперника</small>';
+  V.note.appendChild(document.createTextNode(x.length > 90 ? x.slice(0, 90) + '…' : x));
+  V.note.hidden = false;
+  clearTimeout(noteT);
+  noteT = setTimeout(() => { if (V) V.note.hidden = true; }, 5000);
+}
+function openChat() {
+  V.chat.classList.add('open');
+  V.note.hidden = true;
+  S.unread = 0;
+  render();
+  V.msgs.scrollTop = V.msgs.scrollHeight;
+  if (matchMedia('(hover: hover)').matches) V.input.focus();
+}
+function closeChat() {
+  V.chat.classList.remove('open');
+  const b = app.querySelector('#chat-open');
+  if (b) b.focus();
+}
+function renderChat() {
+  V.badge.hidden = !S.unread;
+  V.badge.textContent = S.unread > 9 ? '9+' : String(S.unread);
+  const lastMine = [...S.log].reverse().find(m => m.mine);
+  const k = S.log.length + ':' + S.peerSeen;
+  if (k === V.logKey || S.mode !== 'net') return;
+  V.logKey = k;
+  V.msgs.textContent = '';
+  if (!S.log.length) {
+    const e = document.createElement('p');
+    e.className = 'empty';
+    e.textContent = 'Пока пусто. Напиши что-нибудь или нажми готовую фразу.';
+    V.msgs.appendChild(e);
+  }
+  S.log.forEach(m => {
+    const d = document.createElement('div');
+    d.className = 'msg ' + (m.mine ? 'mine' : 'them');
+    d.textContent = m.x;
+    d.setAttribute('aria-label', (m.mine ? 'Ты: ' : 'Соперник: ') + m.x);
+    if (m === lastMine) {
+      const s = document.createElement('small');
+      s.textContent = m.n <= S.peerSeen ? 'доставлено' : 'ещё не доставлено';
+      d.appendChild(s);
+    }
+    V.msgs.appendChild(d);
+  });
+  V.msgs.scrollTop = V.msgs.scrollHeight;
+}
+
+/* ---------- Sound and vibration ---------- */
+const Snd = (() => {
+  let ctx = null, on = load('localStorage', 'mb:sound') !== false;
+  const unlock = () => {
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch {}
+  };
+  addEventListener('pointerdown', unlock);
+  addEventListener('keydown', unlock);
+  const tone = (from, to, at, len, type = 'sine', vol = .1) => {
+    const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(from, t);
+    o.frequency.exponentialRampToValueAtTime(to, t + len);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(.0008, t + len);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t + len);
+  };
+  const sets = {
+    miss: () => tone(420, 190, 0, .16),
+    hit: () => tone(170, 60, 0, .22, 'triangle', .18),
+    sunk: () => { tone(170, 50, 0, .3, 'triangle', .2); tone(110, 40, .14, .34, 'triangle', .16); },
+    turn: () => { tone(660, 660, 0, .09); tone(880, 880, .1, .13); },
+    note: () => tone(980, 1180, 0, .08, 'sine', .07),
+    win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, f, i * .11, .2)),
+    lose: () => [392, 330, 262].forEach((f, i) => tone(f, f, i * .15, .24))
+  };
+  const buzz = { hit: 40, sunk: [40, 50, 60], turn: 25, note: 20, win: 60, lose: 90 };
+  return {
+    get on() { return on; },
+    toggle() { on = !on; save('localStorage', 'mb:sound', on); },
+    play(name) {
+      if (!on) return;
+      try { if (ctx && ctx.state === 'running') sets[name](); } catch {}
+      try { if (buzz[name] && navigator.vibrate) navigator.vibrate(buzz[name]); } catch {}
+    }
+  };
+})();
+const paintSound = () => { V.soundBtn.textContent = Snd.on ? 'Звук вкл.' : 'Звук выкл.'; V.soundBtn.setAttribute('aria-pressed', String(Snd.on)); };
 
 function fire(c) {
   const o = oppNow();
@@ -870,13 +1114,35 @@ function render() {
   const me = S.me, o = oppNow(), both = me.ready && o.ready;
   V.arena.dataset.phase = both ? 'battle' : 'place';
   V.own.field.classList.toggle('setup', !me.ready);
+  const busy = new Set(me.ready ? [] : me.fleet.flat());
+  for (let c = 0; c < N * N; c++) V.own.cell(c).classList.toggle('busy', busy.has(c));
   renderOwn();
-  if (!both) { renderSetup(o); return; }
+  renderChat();
+  if (!both) { delete V.arena.dataset.focus; focusWant = null; renderSetup(o); return; }
 
   /* Battle */
   const d = derive(me, o, firstRole(me.g) === S.role);
   const myTurn = d.turn === 'a' && !d.waiting && !d.winner;
   const known = knownCells(o);
+
+  /* Big board on a phone follows the game, after a beat so the last mark can be seen. */
+  const want = myTurn || d.winner || (d.waiting && d.turn === 'a') ? 'enemy' : 'own';
+  if (want !== focusWant) {
+    focusWant = want;
+    clearTimeout(focusT);
+    const apply = () => { if (V && V.arena.isConnected && focusWant === want) V.arena.dataset.focus = want; };
+    if (V.arena.dataset.focus && !d.winner) focusT = setTimeout(apply, 1100); else apply();
+  }
+  /* Sounds for what just happened */
+  if (V.evGame !== me.g) { V.evGame = me.g; V.evSeen = d.events.length; V.wasMine = myTurn; }
+  else if (d.events.length > V.evSeen) {
+    V.evSeen = d.events.length;
+    const e = d.last;
+    if (d.winner) Snd.play(d.winner === 'a' ? 'win' : 'lose');
+    else Snd.play(e.r === 2 ? 'sunk' : e.r === 1 ? 'hit' : 'miss');
+    if (myTurn && !V.wasMine && !d.winner) setTimeout(() => Snd.play('turn'), 320);
+    V.wasMine = myTurn;
+  }
 
   const marks = [], hitSet = new Set(), seen = new Set();
   d.events.filter(e => e.who === 'a').forEach(e => {
@@ -934,8 +1200,9 @@ function render() {
     else if (l && l.who === 'b') sub = `Попал в ${coord(l.c)}: ${RES[l.r]}. Стреляет ещё раз.`;
     else sub = 'Первый выстрел за ним.';
   }
-  V.big.textContent = big;
-  V.sub.textContent = sub;
+  if (!d.winner && !myTurn && S.mode === 'net' && T && !T.peerOnline()) sub = 'Соперник вышел из сети. Партия сохранена, она продолжится, когда он вернётся.';
+  if (V.big.textContent !== big) V.big.textContent = big;
+  if (V.sub.textContent !== sub) V.sub.textContent = sub;
   setTitle(myTurn, d.winner);
 
   /* End of round */
@@ -970,32 +1237,37 @@ function renderSetup(o) {
   if (V.setupKey === state) return;
   V.setupKey = state;
   const opener = firstRole(me.g) === S.role ? 'Первый выстрел за тобой.' : 'Первый выстрел за соперником.';
+  const canShare = !!(shareUrl() && navigator.share);
   V.setup.innerHTML = `
     ${inviteNeeded ? `
       <div class="invite">
         <h3 style="font-size:22px">Позови друга</h3>
         <div class="num" id="the-code">${S.code}</div>
         <div class="row">
+          ${canShare ? '<button class="btn main" id="share" type="button">Отправить другу</button>' : ''}
           <button class="btn" id="copy" type="button">${shareUrl() ? 'Скопировать ссылку' : 'Скопировать приглашение'}</button>
           <span class="hint" id="copied" role="status"></span>
         </div>
         <input id="copy-fallback" readonly hidden aria-label="Текст приглашения">
         <p class="hint">${shareUrl() ? 'Друг откроет ссылку и сразу попадёт в игру.' : inClaude ? 'Друг откроет эту страницу и введёт код.' : 'Друг откроет этот же файл игры и введёт код.'}</p>
       </div>` : ''}
-    ${isNet && S.role === 'guest' && !heard ? `<p class="hint">Соперник пока не появился. Если так и не появится, проверь код: ${S.code}.</p>` : ''}
+    ${isNet && S.role === 'guest' && !heard ? `<p class="setup-note">Соперник пока не появился. Если так и не появится, проверь код: ${S.code}.</p>` : ''}
     ${!me.ready ? `
-      <div class="row">
+      <div class="row place-actions">
         <button class="btn main" id="ready" type="button">В бой</button>
         <button class="btn" id="shuffle" type="button">Расставить заново</button>
       </div>
       <div class="steps">
         <div>Флот: один четырёхпалубный, два трёхпалубных, три двухпалубных и четыре однопалубных.</div>
         <div>Попал — стреляешь ещё раз. ${opener}</div>
-      </div>` : `<p class="hint">${opener}</p>`}`;
+      </div>` : `<p class="setup-note">${opener}</p>`}`;
   const q = id => V.setup.querySelector('#' + id);
   if (q('ready')) q('ready').onclick = () => { S.me.ready = true; setupMsg = ''; commit(); sync(); };
   if (q('shuffle')) q('shuffle').onclick = () => { S.me.fleet = randomFleet(); setupMsg = ''; store(); render(); };
   if (q('copy')) q('copy').onclick = doCopy;
+  if (q('share')) q('share').onclick = () => {
+    navigator.share({ title: 'Морской бой', text: 'Сыграем в морской бой?', url: shareUrl() }).catch(e => { if (!e || e.name !== 'AbortError') doCopy(); });
+  };
 }
 
 function shareUrl() {
